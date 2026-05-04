@@ -56,53 +56,94 @@ atom_y = 166   # shifted to nearest plaquette centre
 atom_x = 227
 print(f"Atom: col={atom_x}, row={atom_y},  real val={img[atom_y,atom_x]:.3f},  recon val={img_recon[atom_y,atom_x]:.3f}")
 
-# ── 7. Angular scan on real image ─────────────────────────────────────────────
+# ── 7. Angular scan — average over all plaquette centres ─────────────────────
 a, da   = 20, 10
 n_theta = 720
 n_r     = 40
 theta_arr = np.linspace(0, 2*np.pi, n_theta, endpoint=False)
 r_arr     = np.linspace(a, a+da, n_r)
+theta_deg = np.degrees(theta_arr)
 
-I_theta = np.zeros(n_theta)
+# Only use plaquette centres far enough from the image edge that the ring stays inside
+margin = a + da + 2
+valid_spots = bright_spots[
+    (bright_spots[:,0] > margin) & (bright_spots[:,0] < N - margin) &
+    (bright_spots[:,1] > margin) & (bright_spots[:,1] < N - margin)
+]
+print(f"Plaquette centres used for averaging: {len(valid_spots)} / {len(bright_spots)}")
+
+# Compute I(θ) for each valid plaquette centre and accumulate
+all_I = np.zeros((len(valid_spots), n_theta))
+for k, spot in enumerate(valid_spots):
+    sy, sx = int(round(spot[0])), int(round(spot[1]))
+    for i, th in enumerate(theta_arr):
+        cols = sx + r_arr * np.cos(th)
+        rows = sy + r_arr * np.sin(th)
+        vals = map_coordinates(img, [rows, cols], order=1, mode='nearest')
+        all_I[k, i] = np.trapezoid(vals, r_arr)
+
+I_theta_avg = np.mean(all_I, axis=0)   # ensemble average
+I_theta_std = np.std(all_I,  axis=0)   # spread across atoms
+
+# Single-atom profile for the confirmed atom (for comparison)
+I_theta_single = np.zeros(n_theta)
 for i, th in enumerate(theta_arr):
     cols = atom_x + r_arr * np.cos(th)
     rows = atom_y + r_arr * np.sin(th)
     vals = map_coordinates(img, [rows, cols], order=1, mode='nearest')
-    I_theta[i] = np.trapezoid(vals, r_arr)
+    I_theta_single[i] = np.trapezoid(vals, r_arr)
 
-theta_deg = np.degrees(theta_arr)
+noise_single = np.std(I_theta_single - np.mean(I_theta_single))
+noise_avg    = np.std(I_theta_avg    - np.mean(I_theta_avg))
+print(f"Noise (single atom): σ={noise_single:.4f}")
+print(f"Noise (averaged):    σ={noise_avg:.4f}  ({len(valid_spots)} atoms)")
 
-# ── 8. Three-panel plot ───────────────────────────────────────────────────────
+# ── 8. Plot: image overview + single vs averaged profiles ────────────────────
 fig, axes = plt.subplots(1, 3, figsize=(17, 5.5))
 ring_theta = np.linspace(0, 2*np.pi, 360)
 
-def draw_panel(ax, bg, title):
-    ax.imshow(bg, cmap='gray', origin='upper', vmin=0, vmax=1)
+# Left: real image with all valid plaquette centres and rings
+ax0 = axes[0]
+ax0.imshow(img, cmap='gray', origin='upper', vmin=0, vmax=1)
+ax0.plot(dark[:,1],          dark[:,0],          'b+', ms=6, mew=1.2, label='dark spots')
+ax0.plot(valid_spots[:,1],   valid_spots[:,0],   'g.', ms=5, alpha=0.8, label=f'atoms averaged ({len(valid_spots)})')
+ax0.plot(atom_x, atom_y, 'r*', ms=14, label='reference atom')
+for sy, sx in valid_spots:
     for rad in [a, a+da]:
-        ax.plot(atom_x + rad*np.cos(ring_theta),
-                atom_y + rad*np.sin(ring_theta), 'r-', lw=1.4)
-    ax.plot(dark[:,1],         dark[:,0],         'b+', ms=7, mew=1.5, label='dark spots')
-    ax.plot(bright_spots[:,1], bright_spots[:,0], 'g.', ms=5, alpha=0.8, label='plaquette centres')
-    ax.plot(atom_x, atom_y, 'r*', ms=14, label='chosen atom')
-    ax.set_xlim(atom_x-160, atom_x+160); ax.set_ylim(atom_y+160, atom_y-160)
-    ax.set_title(title, fontsize=10)
-    ax.set_xlabel('x (px)'); ax.set_ylabel('y (px)')
-    ax.legend(fontsize=7)
+        ax0.plot(sx + rad*np.cos(ring_theta), sy + rad*np.sin(ring_theta),
+                 'orange', lw=0.5, alpha=0.3)
+ax0.set_title('Real image — all averaged atoms', fontsize=10)
+ax0.set_xlabel('x (px)'); ax0.set_ylabel('y (px)')
+ax0.legend(fontsize=7)
 
-draw_panel(axes[0], img_recon, 'Reconstructed image\n(Gaussians at detected dark spots)')
-draw_panel(axes[1], img,       'Real image\n(dark spots & plaquette centres overlaid)')
+# Middle: single atom profile
+ax1 = axes[1]
+ax1.plot(theta_deg, I_theta_single, color='steelblue', lw=1.4,
+         label=f'Single atom (227,166)  σ={noise_single:.4f}')
+ax1.axhline(I_theta_single.mean(), color='steelblue', ls='--', lw=1)
+for angle in [0, 90, 180, 270]:
+    ax1.axvline(angle, color='gray', ls=':', lw=0.8)
+ax1.set_xlabel('θ  (degrees)', fontsize=11)
+ax1.set_ylabel(r'$I(\theta)$', fontsize=11)
+ax1.set_title(f'Single atom\n(a={a} px, da={da} px)', fontsize=10)
+ax1.set_xlim(0, 360); ax1.set_xticks([0,90,180,270,360])
+ax1.legend(fontsize=8); ax1.grid(True, alpha=0.3)
 
+# Right: ensemble-averaged profile with ±1σ band
 ax2 = axes[2]
-ax2.plot(theta_deg, I_theta, color='steelblue', lw=1.6)
-ax2.axhline(I_theta.mean(), color='tomato', ls='--', lw=1.2,
-            label=f'mean = {I_theta.mean():.3f}')
+ax2.fill_between(theta_deg, I_theta_avg - I_theta_std,
+                             I_theta_avg + I_theta_std,
+                 color='steelblue', alpha=0.25, label='±1σ spread')
+ax2.plot(theta_deg, I_theta_avg, color='steelblue', lw=1.6,
+         label=f'Averaged ({len(valid_spots)} atoms)  σ={noise_avg:.4f}')
+ax2.axhline(I_theta_avg.mean(), color='tomato', ls='--', lw=1)
 for angle in [0, 90, 180, 270]:
     ax2.axvline(angle, color='gray', ls=':', lw=0.8)
-ax2.set_xlabel('θ  (degrees)', fontsize=12)
-ax2.set_ylabel(r'$\int_a^{a+da}\,I(r,\theta)\,dr$', fontsize=12)
-ax2.set_title(f'Angular intensity (real image)\na={a} px, da={da} px', fontsize=10)
-ax2.set_xlim(0, 360); ax2.set_xticks([0,45,90,135,180,225,270,315,360])
-ax2.legend(); ax2.grid(True, alpha=0.3)
+ax2.set_xlabel('θ  (degrees)', fontsize=11)
+ax2.set_ylabel(r'$\langle I(\theta) \rangle$', fontsize=11)
+ax2.set_title(f'Ensemble average\n(a={a} px, da={da} px)', fontsize=10)
+ax2.set_xlim(0, 360); ax2.set_xticks([0,90,180,270,360])
+ax2.legend(fontsize=8); ax2.grid(True, alpha=0.3)
 
 plt.tight_layout()
 out_png = '/sessions/beautiful-compassionate-curie/mnt/Downloads/angular_scan.png'
