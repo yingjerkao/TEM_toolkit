@@ -37,13 +37,25 @@ def plot_fig1(p: TBParams = TBParams(), nk: int = 400, savepath: str | None = No
             ax.contour(KX_p, KY_p, E[..., n] - pp.mu, levels=[0.0], colors="k", linewidths=0.8)
 
         kF = pp.kF()
-        Q0 = (2 * kF if 2 * kF < np.pi else 2 * kF - 2 * np.pi,
-              2 * kF if 2 * kF < np.pi else 2 * kF - 2 * np.pi)
-        ax.annotate("", xy=Q0, xytext=(0, 0),
-                    arrowprops=dict(arrowstyle="->", color="red", lw=2))
-        ax.annotate("", xy=(2 * kF - 2 * np.pi, np.pi - 2 * np.pi if np.pi > np.pi else np.pi),
-                    xytext=(0, 0),
-                    arrowprops=dict(arrowstyle="->", color="blue", lw=2, alpha=0.6))
+        # Q0 = (2 kF, 2 kF) connects the FS sheet at (-kF, -kF) to the one
+        # at (+kF, +kF) (modulo BZ).  Drawing the arrow between two physical
+        # FS points makes the nesting visually obvious.
+        tail = (-kF, -kF)
+        head = (-kF + 2 * kF, -kF + 2 * kF)   # = (+kF, +kF)
+        ax.annotate("", xy=head, xytext=tail,
+                    arrowprops=dict(arrowstyle="-|>", color="red", lw=2.0,
+                                    mutation_scale=18))
+        ax.text(0.0, 0.15, r"$\mathbf{Q}_0$", color="red", fontsize=12,
+                ha="center", va="bottom")
+
+        # Alternative nesting (2 kF, pi): connects, e.g., (-kF, -pi/2) to (+kF, +pi/2)
+        tail2 = (-kF, -np.pi / 2)
+        head2 = (kF, np.pi / 2)
+        ax.annotate("", xy=head2, xytext=tail2,
+                    arrowprops=dict(arrowstyle="-|>", color="blue", lw=2.0,
+                                    alpha=0.7, mutation_scale=18))
+        ax.text(0.05, 0.0, r"$(2k_F, \pi)$", color="blue", fontsize=11,
+                ha="left", va="center")
 
         ax.set_xlim(-np.pi, np.pi)
         ax.set_ylim(-np.pi, np.pi)
