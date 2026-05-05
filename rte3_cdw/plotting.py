@@ -37,25 +37,89 @@ def plot_fig1(p: TBParams = TBParams(), nk: int = 400, savepath: str | None = No
             ax.contour(KX_p, KY_p, E[..., n] - pp.mu, levels=[0.0], colors="k", linewidths=0.8)
 
         kF = pp.kF()
-        # Q0 = (2 kF, 2 kF) connects the FS sheet at (-kF, -kF) to the one
-        # at (+kF, +kF) (modulo BZ).  Drawing the arrow between two physical
-        # FS points makes the nesting visually obvious.
-        tail = (-kF, -kF)
-        head = (-kF + 2 * kF, -kF + 2 * kF)   # = (+kF, +kF)
-        ax.annotate("", xy=head, xytext=tail,
+
+        # ----- find FS crossings numerically (per panel) -----
+        def fs_crossings_along(axis: str, fixed_val: float) -> np.ndarray:
+            """Return all kx (or ky) values at which either band crosses
+            the Fermi level, scanning along the chosen axis at a fixed
+            value of the other coordinate.
+            """
+            scan = np.linspace(-np.pi, np.pi, 4001)
+            other = np.full_like(scan, fixed_val)
+            if axis == "x":
+                kx, ky = scan, other
+            else:
+                kx, ky = other, scan
+            hh = h_k(kx, ky, pp)
+            ee = np.linalg.eigvalsh(hh) - pp.mu
+            cross = []
+            for band in range(ee.shape[-1]):
+                vals = ee[..., band]
+                sign = np.sign(vals)
+                idx = np.where(np.diff(sign) != 0)[0]
+                for i in idx:
+                    x0, x1 = scan[i], scan[i + 1]
+                    y0, y1 = vals[i], vals[i + 1]
+                    if y1 != y0:
+                        cross.append(x0 - y0 * (x1 - x0) / (y1 - y0))
+            return np.array(sorted(cross))
+
+        def closest_to(arr: np.ndarray, target: float) -> float:
+            return float(arr[np.argmin(np.abs(arr - target))]) if len(arr) else float(target)
+
+        # Q0 = (2 kF, 2 kF) -- shown twice (red), with tails on different FS
+        # sheets.  We pick a target tail position based on bare-limit kF, then
+        # snap to the actual FS crossing closest to that target.
+        Q0 = (2 * kF, 2 * kF)
+
+        # Arrow 1: bottom py line.  Snap kx of tail toward -kF (left px branch
+        # would be too far west).  We anchor at ky = -kF/2 and find the FS
+        # crossing nearest -kF in kx -- that lands us on the LEFT px outer line.
+        # Wait -- to have it on the BOTTOM py line we need to scan along x
+        # at fixed y = -kF (or wherever the py line sits) and pick the
+        # crossing nearest the desired kx.
+
+        # We want one tail on the bottom py FS line and one on the left px
+        # FS line.  The bottom py line, in panel (c), sits near ky ~ -kF
+        # in the wings (away from the corners).  Pick a target tail kx and
+        # scan in y to find the actual ky on the FS.
+        target_kx_1 = -3 * kF / 2          # how far left along the py line
+        ys = fs_crossings_along("y", target_kx_1)
+        # The bottom py branch is the FS crossing closest to -kF (negative).
+        ky_tail_1 = closest_to(ys[ys < 0], -kF) if (ys < 0).any() else -kF
+        tail1 = (target_kx_1, ky_tail_1)
+        head1 = (tail1[0] + Q0[0], tail1[1] + Q0[1])
+        ax.annotate("", xy=head1, xytext=tail1,
                     arrowprops=dict(arrowstyle="-|>", color="red", lw=2.0,
                                     mutation_scale=18))
-        ax.text(0.0, 0.15, r"$\mathbf{Q}_0$", color="red", fontsize=12,
-                ha="center", va="bottom")
 
-        # Alternative nesting (2 kF, pi): connects, e.g., (-kF, -pi/2) to (+kF, +pi/2)
-        tail2 = (-kF, -np.pi / 2)
-        head2 = (kF, np.pi / 2)
+        # Arrow 2: left px line at ky = -3 kF/2.
+        target_ky_2 = -3 * kF / 2
+        xs = fs_crossings_along("x", target_ky_2)
+        # The left px branch is the FS crossing closest to -kF (negative).
+        kx_tail_2 = closest_to(xs[xs < 0], -kF) if (xs < 0).any() else -kF
+        tail2 = (kx_tail_2, target_ky_2)
+        head2 = (tail2[0] + Q0[0], tail2[1] + Q0[1])
         ax.annotate("", xy=head2, xytext=tail2,
+                    arrowprops=dict(arrowstyle="-|>", color="red", lw=2.0,
+                                    mutation_scale=18))
+        ax.text(0.0, 0.05, r"$\mathbf{Q}_0$", color="red", fontsize=12,
+                ha="center", va="bottom", fontweight="bold")
+
+        # (2 kF, pi) arrows share tail positions with the Q0 arrows so the
+        # only visual difference is where the heads land.  Q0 nests the FS
+        # well; (2kF, pi) does not nest the py lines.
+        Qpi = (2 * kF, np.pi)
+        head1_pi = (tail1[0] + Qpi[0], tail1[1] + Qpi[1])
+        ax.annotate("", xy=head1_pi, xytext=tail1,
                     arrowprops=dict(arrowstyle="-|>", color="blue", lw=2.0,
-                                    alpha=0.7, mutation_scale=18))
-        ax.text(0.05, 0.0, r"$(2k_F, \pi)$", color="blue", fontsize=11,
-                ha="left", va="center")
+                                    alpha=0.75, mutation_scale=18))
+        head2_pi = (tail2[0] + Qpi[0], tail2[1] + Qpi[1])
+        ax.annotate("", xy=head2_pi, xytext=tail2,
+                    arrowprops=dict(arrowstyle="-|>", color="blue", lw=2.0,
+                                    alpha=0.75, mutation_scale=18))
+        ax.text(0.4, -0.4, r"$(2k_F, \pi)$", color="blue", fontsize=11,
+                ha="left", va="top")
 
         ax.set_xlim(-np.pi, np.pi)
         ax.set_ylim(-np.pi, np.pi)
