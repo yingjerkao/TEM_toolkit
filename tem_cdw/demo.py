@@ -16,13 +16,11 @@ import os
 import sys
 import time
 
-sys.path.insert(0, '/home/claude')
-
-from rte3_cdw.plotting import (
+from tem_cdw.plotting import (
     plot_fig1, plot_fig3, plot_fig4, plot_fig5, plot_fig6, plot_fig7, plot_fig9,
 )
 
-OUTDIR = "/mnt/user-data/outputs/figures"
+OUTDIR = "figures"
 os.makedirs(OUTDIR, exist_ok=True)
 
 
