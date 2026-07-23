@@ -10,3 +10,11 @@ dependencies = [
     "numpy>=2.4.4",
     "scipy>=1.17.1",
 ]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
