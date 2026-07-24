@@ -3,11 +3,15 @@ Two-orbital (px, py) tight-binding Hamiltonian on the square lattice.
 
 Eq. (2) of Alekseev et al., PRB 110, 205103 (2024):
 
-    h(k) = [ 2 t_sigma cos(kx) - 2 t_pi cos(ky)    2 t_d sin(kx) sin(ky)   ]
-           [ 2 t_d sin(kx) sin(ky)                  2 t_sigma cos(ky) - 2 t_pi cos(kx) ]
+    h(k) = [ 2 t_sigma cos(kx) - 2 t_pi cos(ky) - 4 t_2 cos(kx) cos(ky)    2 t_d sin(kx) sin(ky)                                              ]
+           [ 2 t_d sin(kx) sin(ky)                                            2 t_sigma cos(ky) - 2 t_pi cos(kx) - 4 t_2 cos(kx) cos(ky) ]
 
 Default parameters (eV) follow Ref. [30]:
     t_sigma = 2.0,  t_pi = 0.37,  t_d = 0.16,  mu = -1.53
+
+Second-neighbor hopping `t_2` adds a nearest-diagonal 2D term `-4 t_2 cos(kx) cos(ky)` to
+both diagonals, giving each orbital 2D character.  The default t_2 = 0.0 recovers the
+pure Alekseev form so all RTE3 results are unchanged when t_2 is unspecified.
 """
 
 from __future__ import annotations
@@ -24,6 +28,7 @@ class TBParams:
     t_sigma: float = 2.0
     t_pi: float = 0.37
     t_d: float = 0.16
+    t_2: float = 0.0
     mu: float = -1.53
 
     def kF(self) -> float:
@@ -48,8 +53,8 @@ def h_k(kx: np.ndarray, ky: np.ndarray, p: TBParams) -> np.ndarray:
     kx = np.asarray(kx)
     ky = np.asarray(ky)
     h = np.zeros(kx.shape + (2, 2), dtype=np.float64)
-    h[..., 0, 0] = 2.0 * p.t_sigma * np.cos(kx) - 2.0 * p.t_pi * np.cos(ky)
-    h[..., 1, 1] = 2.0 * p.t_sigma * np.cos(ky) - 2.0 * p.t_pi * np.cos(kx)
+    h[..., 0, 0] = 2.0 * p.t_sigma * np.cos(kx) - 2.0 * p.t_pi * np.cos(ky) - 4.0 * p.t_2 * np.cos(kx) * np.cos(ky)
+    h[..., 1, 1] = 2.0 * p.t_sigma * np.cos(ky) - 2.0 * p.t_pi * np.cos(kx) - 4.0 * p.t_2 * np.cos(kx) * np.cos(ky)
     off = 2.0 * p.t_d * np.sin(kx) * np.sin(ky)
     h[..., 0, 1] = off
     h[..., 1, 0] = off
