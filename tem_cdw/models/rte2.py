@@ -18,7 +18,10 @@ from ..susceptibility import susceptibility_tensor, chi_combinations
 from .base import MaterialModel, Q0Result
 
 
-# Placeholder defaults; Task 8 replaces these with the LaTe₂ fit.
+# Default params for a bare `RTE2Model()` instantiation. These are the
+# Alekseev RTE3 values, chosen only so the χ-scan mechanism is exercisable
+# in unit tests without depending on the frozen LaTe₂ fit. Real LaTe₂ work
+# should construct the model via the `LaTe2Model()` factory below.
 LATE2_PLACEHOLDER = TBParams(t_sigma=2.0, t_pi=0.37, t_d=0.16, mu=-1.53)
 
 

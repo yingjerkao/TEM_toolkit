@@ -1187,13 +1187,13 @@ source = { virtual = "." }
 dependencies = [
     { name = "ipykernel" },
     { name = "matplotlib" },
-    { name = "nbconvert" },
     { name = "numpy" },
     { name = "scipy" },
 ]
 
 [package.optional-dependencies]
 dev = [
+    { name = "nbconvert" },
     { name = "pytest" },
 ]
 
@@ -1201,7 +1201,7 @@ dev = [
 requires-dist = [
     { name = "ipykernel", specifier = ">=7.2.0" },
     { name = "matplotlib", specifier = ">=3.10.9" },
-    { name = "nbconvert", specifier = ">=7.17.1" },
+    { name = "nbconvert", marker = "extra == 'dev'", specifier = ">=7.17.1" },
     { name = "numpy", specifier = ">=2.4.4" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0" },
     { name = "scipy", specifier = ">=1.17.1" },
