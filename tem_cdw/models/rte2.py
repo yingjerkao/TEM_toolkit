@@ -70,3 +70,30 @@ class RTE2Model(MaterialModel):
             chi_axial=chi_axial,
             chi_diagonal=chi_diagonal,
         )
+
+
+def LaTe2Model() -> RTE2Model:
+    """Factory returning RTE2Model with the LaTe₂-fitted TB parameters.
+
+    Params are frozen at fit time in tem_cdw/models/rte2_fit_report/
+    fitted_params.npz (produced by scripts/fit_late2.py). Downstream
+    code never re-runs the fit.
+    """
+    import pathlib
+    npz_path = (
+        pathlib.Path(__file__).parent / "rte2_fit_report" / "fitted_params.npz"
+    )
+    if not npz_path.exists():
+        raise FileNotFoundError(
+            f"LaTe₂ fit not yet run. Execute `python -m scripts.fit_late2` "
+            f"before calling LaTe2Model(). Expected file: {npz_path}"
+        )
+    data = np.load(npz_path)
+    params = TBParams(
+        t_sigma=float(data["t_sigma"]),
+        t_pi=float(data["t_pi"]),
+        t_d=float(data["t_d"]),
+        t_2=float(data["t_2"]) if "t_2" in data.files else 0.0,
+        mu=float(data["mu"]),
+    )
+    return RTE2Model(params=params)
