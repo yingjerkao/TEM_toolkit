@@ -50,3 +50,28 @@ def test_gl_quadratic_a_minus_at_Q0():
     qc = m.gl_theory.quadratic_coeffs(Qx, Qy, T=0.026, p=p, g=1.0, nk=100)
     a_minus, _, _, _ = qc.diagonalize()
     assert a_minus == pytest.approx(EXPECTED_A_MINUS, rel=1e-8)
+
+
+def test_t2_defaults_to_zero_preserves_alekseev():
+    """t_2 defaults to 0.0 so RTE3 physics is unchanged."""
+    m = _get_module()
+    p = m.hamiltonian.TBParams()
+    assert p.t_2 == 0.0
+
+
+def test_t2_nonzero_changes_diagonal_of_h_k():
+    """t_2 != 0 adds -4 t_2 cos(kx) cos(ky) to both h[0,0] and h[1,1]."""
+    m = _get_module()
+    p_zero = m.hamiltonian.TBParams()
+    p_t2 = m.hamiltonian.TBParams(t_2=0.1)
+    kx = np.array([0.5])
+    ky = np.array([0.7])
+    h0 = m.hamiltonian.h_k(kx, ky, p_zero)
+    h1 = m.hamiltonian.h_k(kx, ky, p_t2)
+    delta = h1 - h0
+    expected = -4.0 * 0.1 * np.cos(0.5) * np.cos(0.7)
+    np.testing.assert_allclose(delta[0, 0, 0], expected)
+    np.testing.assert_allclose(delta[0, 1, 1], expected)
+    # off-diagonal must be unchanged
+    np.testing.assert_allclose(delta[0, 0, 1], 0.0, atol=1e-12)
+    np.testing.assert_allclose(delta[0, 1, 0], 0.0, atol=1e-12)
